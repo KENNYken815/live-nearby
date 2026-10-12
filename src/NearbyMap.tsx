@@ -1,154 +1,114 @@
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import {
   MapContainer,
+  TileLayer,
   Marker,
   Popup,
-  TileLayer,
   useMap,
 } from 'react-leaflet'
 import L from 'leaflet'
-import type { MapListing } from './App'
 import 'leaflet/dist/leaflet.css'
 
-const VIJAYAWADA: [number, number] = [16.5062, 80.6480]
+export type MapListing = {
+  id: string
+  title: string
+  category: 'Deals' | 'Events' | 'Places'
+  subtitle: string
+  location: string
+  distance: string
+  time: string
+  price?: string
+  image: string
+  position: [number, number]
+}
 
 type NearbyMapProps = {
   listings: MapListing[]
-  onSelect: (listing: MapListing) => void
+  selectedListing?: MapListing | null
+  onSelect?: (listing: MapListing) => void
 }
 
-function makePin(color: string) {
-  return L.divIcon({
-    className: 'nearby-pin-wrapper',
-    html: `<span class="nearby-pin" style="--pin-color:${color}"><span></span></span>`,
-    iconSize: [24, 32],
-    iconAnchor: [12, 28],
-    popupAnchor: [0, -26],
-  })
+const defaultCenter: [number, number] = [16.5062, 80.648]
+
+const categoryIcons: Record<MapListing['category'], L.DivIcon> = {
+  Deals: L.divIcon({
+    className: 'nearby-map-marker',
+    html: '<div style="width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#b88383;border:3px solid #fff;box-shadow:0 2px 8px #0002"></div>',
+    iconSize: [30, 30],
+    iconAnchor: [15, 30],
+    popupAnchor: [0, -30],
+  }),
+
+  Events: L.divIcon({
+    className: 'nearby-map-marker',
+    html: '<div style="width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#9a9c82;border:3px solid #fff;box-shadow:0 2px 8px #0002"></div>',
+    iconSize: [30, 30],
+    iconAnchor: [15, 30],
+    popupAnchor: [0, -30],
+  }),
+
+  Places: L.divIcon({
+    className: 'nearby-map-marker',
+    html: '<div style="width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#c6a477;border:3px solid #fff;box-shadow:0 2px 8px #0002"></div>',
+    iconSize: [30, 30],
+    iconAnchor: [15, 30],
+    popupAnchor: [0, -30],
+  }),
 }
 
-const categoryIcons = {
-  Deals: makePin('#b88383'),
-  Events: makePin('#9a9c82'),
-  Places: makePin('#ad9a8c'),
-}
-
-const cityIcon = L.divIcon({
-  className: 'city-pin-wrapper',
-  html: '<span class="city-pin"></span>',
-  iconSize: [16, 16],
-  iconAnchor: [8, 8],
-})
-
-function MapCamera({ position }: { position: [number, number] }) {
+function MapCamera({
+  selectedListing,
+}: {
+  selectedListing?: MapListing | null
+}) {
   const map = useMap()
 
   useEffect(() => {
-    map.flyTo(position, Math.max(map.getZoom(), 14), {
-      duration: 0.8,
-    })
-  }, [map, position])
+    if (selectedListing) {
+      map.flyTo(selectedListing.position, 15, {
+        duration: 0.8,
+      })
+    }
+  }, [map, selectedListing])
 
   return null
 }
 
 export default function NearbyMap({
   listings,
+  selectedListing,
   onSelect,
 }: NearbyMapProps) {
-  const [mapCentre, setMapCentre] =
-    useState<[number, number]>(VIJAYAWADA)
-  const [isUserLocation, setIsUserLocation] = useState(false)
-  const [locating, setLocating] = useState(false)
-  const [message, setMessage] = useState('')
-
-  function locateMe() {
-    if (!navigator.geolocation) {
-      setMessage('Location is not supported by this browser.')
-      return
-    }
-
-    setLocating(true)
-    setMessage('')
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const nextPosition: [number, number] = [
-          position.coords.latitude,
-          position.coords.longitude,
-        ]
-
-        setMapCentre(nextPosition)
-        setIsUserLocation(true)
-        setLocating(false)
-        setMessage('Showing your current location. Listing distances are still demo values.')
-      },
-      () => {
-        setLocating(false)
-        setMessage('Location unavailable. Allow location access in your browser and try again.')
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 12000,
-        maximumAge: 60000,
-      },
-    )
-  }
-
-  function resetToCity() {
-    setMapCentre(VIJAYAWADA)
-    setIsUserLocation(false)
-    setMessage('')
-  }
-
   return (
     <section className="map-section" id="map">
       <div className="map-heading">
         <div>
-          <p className="eyebrow">YOUR LITTLE CORNER OF THE WORLD</p>
-          <h2>
-            Find your <em>way around.</em>
-          </h2>
-          <p className="map-intro">
-            A map for little discoveries around Vijayawada.
+          <p className="eyebrow">EXPLORE YOUR SURROUNDINGS</p>
+          <h2>Close to you</h2>
+          <p className="section-description">
+            Discover little places and experiences nearby.
           </p>
         </div>
 
-        <div className="map-actions">
-          <button
-            type="button"
-            className="locate-button"
-            onClick={locateMe}
-            disabled={locating}
-          >
-            {locating ? 'FINDING YOU…' : 'USE MY LOCATION ↗'}
-          </button>
-          {isUserLocation && (
-            <button
-              type="button"
-              className="city-reset"
-              onClick={resetToCity}
-            >
-              BACK TO VIJAYAWADA
-            </button>
-          )}
-        </div>
+        <span className="map-count">
+          {listings.length} {listings.length === 1 ? 'result' : 'results'}
+        </span>
       </div>
 
-      <div className="map-frame">
+      <div className="nearby-map-container">
         <MapContainer
-          center={VIJAYAWADA}
-          zoom={14}
+          center={defaultCenter}
+          zoom={13}
           scrollWheelZoom
-          className="nearby-map"
+          className="nearby-leaflet-map"
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
-          <MapCamera position={mapCentre} />
+          <MapCamera selectedListing={selectedListing} />
 
           {listings.map((listing) => (
             <Marker
@@ -156,48 +116,31 @@ export default function NearbyMap({
               position={listing.position}
               icon={categoryIcons[listing.category]}
               eventHandlers={{
-                click: () => onSelect(listing),
+                click: () => onSelect?.(listing),
               }}
             >
               <Popup>
                 <div className="map-popup">
-                  <span>{listing.category.toUpperCase()}</span>
                   <strong>{listing.title}</strong>
                   <p>{listing.subtitle}</p>
+                  <span>{listing.distance} away</span>
+                  {listing.price && <p>{listing.price}</p>}
                   <button
                     type="button"
-                    onClick={() => onSelect(listing)}
+                    onClick={() => onSelect?.(listing)}
                   >
-                    VIEW DETAILS ↗
+                    View details
                   </button>
                 </div>
               </Popup>
             </Marker>
           ))}
-
-          <Marker position={mapCentre} icon={cityIcon}>
-            <Popup>
-              {isUserLocation ? 'Your current location' : 'Vijayawada city-centre reference'}
-            </Popup>
-          </Marker>
         </MapContainer>
       </div>
 
-      <div className="map-caption">
-        <span>MAP STUDY / 01</span>
-        <span>
-          {isUserLocation ? 'YOUR CURRENT AREA' : 'VIJAYAWADA, ANDHRA PRADESH'}
-        </span>
-      </div>
-
-      {message && (
-        <p className="map-message" role="status">
-          {message}
-        </p>
-      )}
-
       <p className="map-disclaimer">
-        Sample pins are illustrative, not verified venues. Distances and offers are not live.
+        Map data © OpenStreetMap contributors. Sample listings are for
+        demonstration purposes.
       </p>
     </section>
   )
